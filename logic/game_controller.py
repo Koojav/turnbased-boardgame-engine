@@ -1,10 +1,10 @@
-from input.base_input_controller import BaseInputController
+from input.base_io_controller import BaseIOController
 from .board_controller import BoardController
 
 
 class GameController:
 
-    def __init__(self, input_controller: BaseInputController):
+    def __init__(self, input_controller: BaseIOController):
         self.input_controller = input_controller
         self.board_controller = BoardController()
 
@@ -19,5 +19,5 @@ class GameController:
 
     def main_loop(self):
         while True:
-            orders = self.input_controller.request_orders_from_all_players(self.board_controller.map)
+            orders = self.input_controller.propagate_board_state(self.board_controller.board)
             self.board_controller.execute_orders(orders)

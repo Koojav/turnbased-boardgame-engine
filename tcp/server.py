@@ -1,36 +1,18 @@
-from tcp.config import Config
 import socketserver
-import time
 import threading
+import queue
 
 
-class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    pass
+class GameTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    def __init__(self, server_address, request_handler_class, bind_and_activate=True):
+        super().__init__(server_address, request_handler_class, bind_and_activate)
+        self.orders_from_clients = queue.Queue()
+
+        # TODO: Figure out how to supply initial BoardState here
+        self.board_state = None
 
 
-class GameTCPServer:
-
-    def __init__(self, input_handler):
-        self.input_handler = input_handler
-
-        print("Starting TCP Server...")
-
-        server = ThreadedTCPServer(Config.server_address, GameRequestHandler)
-        with server:
-            # Start a thread with the tcp -- that thread will then start one
-            # more thread for each request
-            server_thread = threading.Thread(target=server.serve_forever)
-            # Exit the tcp thread when the main thread terminates
-            server_thread.daemon = True
-            server_thread.start()
-            # server_thread.join()
-            print("Server loop running in thread:", server_thread.name)
-
-            # TODO: Figure out proper way
-            time.sleep(3600)
-
-
-class GameRequestHandler(socketserver.BaseRequestHandler):
+class GameTCPRequestHandler(socketserver.BaseRequestHandler):
     """
     The request handler class for our tcp.
 
@@ -39,21 +21,27 @@ class GameRequestHandler(socketserver.BaseRequestHandler):
     client.
     """
 
+    def __init__(self, request, client_address, server):
+        super().__init__(request, client_address, server)
+        self.last_sent_board_id = -1
+
     def handle(self):
+
+        server = self.server
+
         while True:
+            client_order = str(self.request.recv(1024), 'ascii')
 
-            data = str(self.request.recv(1024), 'ascii')
-            cur_thread = threading.current_thread()
-            response = bytes("{}: {}".format(cur_thread.name, data), 'ascii')
-            # TODO: self.tcp - should be able to access self.tcp.game_controller
-            if len(data) > 0:
-                self.request.sendall(response)
-                print(response)
-            time.sleep(1)
+            # TODO: Make something process server.orders_from_clients once it gets full for the turn
 
+            # TODO: Improve recognition of point when all data, in one order, has been fully received
+            if len(client_order) > 0:
+                server.orders_from_clients.put(client_order)
+                print("Order queue size: %d".format(len(server.queue_input_orders)))
 
-
-
-
-
-
+            # TODO: Check if this works but first see TODO about initial BoardState
+            if self.last_sent_board_id < server.board_state.id:
+                cur_thread = threading.current_thread()
+                response_board_state = bytes("{}: {}".format(cur_thread.name, server.board_state.state), 'ascii')
+                self.request.sendall(response_board_state)
+                print(response_board_state)
