@@ -5,6 +5,7 @@ from .board_controller import BoardController
 class GameController:
 
     def __init__(self, input_controller: BaseIOController):
+        # TODO: Move TCPIoController to another Thread so it doesn't block the rest - then check if 2 clients can submit and process orders
         self.input_controller = input_controller
         self.board_controller = BoardController()
 
@@ -19,5 +20,5 @@ class GameController:
 
     def main_loop(self):
         while True:
-            orders = self.input_controller.propagate_board_state(self.board_controller.board)
+            orders = self.input_controller.propagate_board_state(self.board_controller.board_state)
             self.board_controller.execute_orders(orders)
