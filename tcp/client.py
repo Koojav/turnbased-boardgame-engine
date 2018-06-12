@@ -1,4 +1,5 @@
 import socket
+import time
 
 client_name = "Roger"
 message_count = 0
@@ -19,6 +20,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         print(client_name + " sent:     {}".format(message))
         print(client_name + " received: {}".format(received))
 
-        # time.sleep(.1)
+        time.sleep(.1)
 
 

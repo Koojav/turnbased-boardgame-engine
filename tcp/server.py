@@ -1,6 +1,7 @@
 import socketserver
 import threading
 import queue
+import time
 
 
 class GameTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -11,7 +12,15 @@ class GameTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.orders_from_clients = queue.Queue()
 
         # This will be None until all clients supply first round of orders, thus registering them and starting the game
-        self.board_state = None
+        self._board_state = None
+
+    @property
+    def board_state(self):
+        return self._board_state
+
+    @board_state.setter
+    def board_state(self, value):
+        self._board_state = value
 
     def retrieve_orders(self):
         """
@@ -33,29 +42,35 @@ class GameTCPRequestHandler(socketserver.BaseRequestHandler):
     """
 
     def __init__(self, request, client_address, server):
-        super().__init__(request, client_address, server)
-
         # Used to indicate which board state was already propagated to the client connected via this instance of
         # GameTCPRequestHandler
         self.last_sent_board_id = -1
+
+        super().__init__(request, client_address, server)
 
     def handle(self):
 
         server = self.server
 
         while True:
-            client_order = str(self.request.recv(1024), 'ascii')
+            # TODO: Check why processing stops after second batch of orders from clients (that send constantly)
 
-            # TODO: Make something process server.orders_from_clients once it gets full for the turn
+            client_order = str(self.request.recv(1024), 'ascii')
 
             # TODO: Improve recognition of point when all data, in one order, has been fully received
             if len(client_order) > 0:
                 server.orders_from_clients.put(client_order)
                 print("Orders in queue: " + str(server.orders_from_clients.qsize()))
 
-            # TODO: Check if this works
-            if server.board_state is not None and self.last_sent_board_id < server.board_state.id:
-                cur_thread = threading.current_thread()
-                response_board_state = bytes("{}: {}".format(cur_thread.name, server.board_state.state), 'ascii')
-                self.request.sendall(response_board_state)
-                print(response_board_state)
+            self.wait_for_new_board_state()
+
+            print("Finished waiting for new board state.")
+
+            response_board_state = bytes("Sending response: {}".format(server.board_state.state), 'ascii')
+            self.request.sendall(response_board_state)
+            self.last_sent_board_id = server.board_state.id
+            print(response_board_state)
+
+    def wait_for_new_board_state(self):
+        while self.server.board_state is None or self.server.board_state.id <= self.last_sent_board_id:
+            time.sleep(1)
