@@ -4,12 +4,7 @@ from .base_io_controller import BaseIOController
 from tcp.server import GameTCPServer
 from tcp.server import GameTCPRequestHandler
 from logic.board_state import BoardState
-
-
-class Config:
-    host = "localhost"
-    port = 9999
-    server_address = (host, port)
+from tcp.config import Config
 
 
 class TCPIOController(BaseIOController):
